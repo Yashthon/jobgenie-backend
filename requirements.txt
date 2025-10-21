@@ -1,6 +1,6 @@
 fastapi==0.111.0
 uvicorn==0.30.0
-openai==1.35.14
+openai==1.46.0
 pdfminer.six==20231228
 python-dotenv==1.0.1
 numpy==2.1.3
