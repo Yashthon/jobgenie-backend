@@ -39,7 +39,10 @@ app = FastAPI(title="JobGenie.ai", version="4.1")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all for now
+    allow_origins=[
+        "http://localhost:3000",  # React dev server
+        "https://jobgenie-frontend.onrender.com",  # your deployed frontend (if Render)
+    ],,  # allow all for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
