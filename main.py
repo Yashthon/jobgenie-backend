@@ -6,6 +6,7 @@ for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
         print(f"Removing Render proxy var: {var}")
         os.environ.pop(var, None)
 import re
+import httpx
 import textwrap
 import numpy as np
 import requests
