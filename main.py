@@ -37,11 +37,13 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # ===============================
 app = FastAPI(title="JobGenie.ai", version="4.1")
 
+origins = [
+    "http://localhost:3000",  # ✅ your local React frontend
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-    ],  # allow all for now
+    allow_origins=origins,  # allow all for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
