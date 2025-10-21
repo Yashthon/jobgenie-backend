@@ -38,6 +38,8 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 app = FastAPI(title="JobGenie.ai", version="4.1")
 
 origins = [
+    "*",  # You can later replace "*" with specific origins
+    "chrome-extension://*"
     "http://localhost:3000",  # ✅ your local React frontend
 ]
 
