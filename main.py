@@ -1,5 +1,10 @@
 import io
 import os
+# Fix Render proxy issue BEFORE any imports
+for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]:
+    if var in os.environ:
+        print(f"Removing Render proxy var: {var}")
+        os.environ.pop(var, None)
 import re
 import textwrap
 import numpy as np
