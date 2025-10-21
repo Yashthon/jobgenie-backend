@@ -13,13 +13,23 @@ from dotenv import load_dotenv
 from sklearn.metrics.pairwise import cosine_similarity
 
 # ===============================
-# 1️⃣ Load environment variables
+# Load environment variables
 # ===============================
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Render fix: Remove proxy vars that break OpenAI client
+os.environ.pop("HTTPS_PROXY", None)
+os.environ.pop("HTTP_PROXY", None)
+
+# Initialize OpenAI client
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise RuntimeError("OPENAI_API_KEY not found in environment variables!")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ===============================
-# 2️⃣ Initialize FastAPI app
+# Initialize FastAPI app
 # ===============================
 app = FastAPI(title="JobGenie.ai", version="4.0")
 
@@ -32,75 +42,61 @@ app.add_middleware(
 )
 
 # ===============================
-# 3️⃣ Clean & reliable PDF text extraction
+# Clean & reliable PDF text extraction
 # ===============================
 def extract_clean_text_from_pdf(file_bytes: bytes) -> str:
-    """
-    Extracts text content from a PDF file, ignoring images, vectors, or graphics.
-    Automatically handles large PDFs and cleans unnecessary characters.
-    """
     try:
-        # Extract text using pdfminer (text layer only)
         raw_text = extract_text(io.BytesIO(file_bytes))
-
-        # Clean non-printable and excess whitespace
         text = re.sub(r"[^\x20-\x7E\n\r\t]+", " ", raw_text)
         text = re.sub(r"\s+", " ", text).strip()
 
-        # Handle scanned/image-only resumes
         if not text or len(text) < 50:
             raise HTTPException(
                 status_code=400,
                 detail="No readable text found in PDF. The file might be scanned or image-based."
             )
 
-        print(f"✅ Extracted {len(text)} characters of text from resume.")
+        print(f"Extracted {len(text)} characters of text from resume.")
         return text
 
     except Exception as e:
-        print("⚠️ PDF extraction error:", e)
+        print("PDF extraction error:", e)
         raise HTTPException(status_code=500, detail="Error while extracting text from PDF.")
 
 # ===============================
-# 4️⃣ Resume parsing (using spaCy)
+# Resume parsing (using spaCy)
 # ===============================
 nlp = spacy.load("en_core_web_sm")
 
 def parse_resume(text: str) -> dict:
     doc = nlp(text)
-    # Extract potential skill keywords (simple heuristic)
     skills = [ent.text for ent in doc.ents if ent.label_ in ["ORG", "PRODUCT", "WORK_OF_ART"]]
     return {
         "skills": list(set(skills))[:10],
-        "summary": text[:4000]  # allow longer context for embedding
+        "summary": text[:4000]
     }
 
 # ===============================
-# 5️⃣ Embedding generator (chunked)
+# Embedding generator (chunked)
 # ===============================
 def get_embedding(text: str) -> np.ndarray:
-    """
-    Generates OpenAI embeddings safely for large text inputs by chunking.
-    Averages all chunk embeddings for a unified vector.
-    """
     text = text.strip()
     if not text:
         return np.zeros(1536)
 
-    # Split text into manageable ~1500-token chunks (~4000 characters)
     chunks = textwrap.wrap(text, width=4000)
     embeddings = []
 
     for i, chunk in enumerate(chunks):
         try:
-            print(f"🔹 Embedding chunk {i+1}/{len(chunks)} ({len(chunk)} chars)")
+            print(f"Embedding chunk {i+1}/{len(chunks)} ({len(chunk)} chars)")
             response = client.embeddings.create(
                 model="text-embedding-3-small",
                 input=chunk
             )
             embeddings.append(np.array(response.data[0].embedding))
         except Exception as e:
-            print("⚠️ Embedding error:", e)
+            print("Embedding error:", e)
             continue
 
     if not embeddings:
@@ -109,12 +105,9 @@ def get_embedding(text: str) -> np.ndarray:
     return np.mean(embeddings, axis=0)
 
 # ===============================
-# 6️⃣ Fetch real jobs from Adzuna
+# Fetch real jobs from Adzuna
 # ===============================
 def fetch_jobs_adzuna(query: str, location: str):
-    """
-    Fetches live job listings from Adzuna API based on role and location.
-    """
     app_id = os.getenv("ADZUNA_APP_ID")
     app_key = os.getenv("ADZUNA_APP_KEY")
 
@@ -132,7 +125,7 @@ def fetch_jobs_adzuna(query: str, location: str):
         data = response.json()
 
         if "results" not in data:
-            print("⚠️ Unexpected Adzuna response:", data)
+            print("Unexpected Adzuna response:", data)
             return []
 
         jobs = [
@@ -146,15 +139,15 @@ def fetch_jobs_adzuna(query: str, location: str):
             for j in data["results"]
         ]
 
-        print(f"✅ Retrieved {len(jobs)} jobs from Adzuna for '{query}' in '{location}'.")
+        print(f"Retrieved {len(jobs)} jobs from Adzuna for '{query}' in '{location}'.")
         return jobs
 
     except Exception as e:
-        print("⚠️ Adzuna fetch error:", e)
+        print("Adzuna fetch error:", e)
         return []
 
 # ===============================
-# 7️⃣ Upload Endpoint (resume + role + location)
+# Upload Endpoint (resume + role + location)
 # ===============================
 @app.post("/upload_resume/")
 async def upload_resume(
@@ -162,35 +155,21 @@ async def upload_resume(
     role: str = Form(...),
     location: str = Form(...)
 ):
-    """
-    Uploads resume, extracts text, parses key data, and fetches job matches.
-    """
     contents = await file.read()
+    print(f"Received file: {file.filename} ({len(contents)/1024:.2f} KB)")
 
-    # No size restriction — handle even large resumes gracefully
-    print(f"📄 Received file: {file.filename} ({len(contents)/1024:.2f} KB)")
-
-    # Extract clean text
     text = extract_clean_text_from_pdf(contents)
-
-    # Parse resume details
     parsed = parse_resume(text)
-
-    # Generate resume embedding
     resume_emb = get_embedding(parsed["summary"])
-
-    # Fetch live jobs based on user inputs
     jobs = fetch_jobs_adzuna(query=role, location=location)
 
     if not jobs:
         raise HTTPException(status_code=404, detail="No jobs found for given role and location.")
 
-    # Compare similarity
     for job in jobs:
         job_emb = get_embedding(job["description"])
         job["score"] = float(cosine_similarity([resume_emb], [job_emb])[0][0])
 
-    # Sort top matches
     top_jobs = sorted(jobs, key=lambda x: x["score"], reverse=True)[:10]
 
     return {
@@ -202,8 +181,8 @@ async def upload_resume(
     }
 
 # ===============================
-# 8️⃣ Health Check
+# Health Check
 # ===============================
 @app.get("/")
 def root():
-    return {"message": "✅ JobGenie.ai backend (Adzuna + OpenAI) is running successfully!"}
+    return {"message": "JobGenie.ai backend (Adzuna + OpenAI) is running successfully!"}
