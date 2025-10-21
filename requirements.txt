@@ -1,1 +1,9 @@
-    
+fastapi
+uvicorn
+openai
+pdfminer.six
+python-dotenv
+numpy
+scikit-learn
+requests
+spacy
