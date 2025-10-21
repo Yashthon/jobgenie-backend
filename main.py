@@ -41,7 +41,6 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # React dev server
-        "https://jobgenie-frontend.onrender.com",  # your deployed frontend (if Render)
     ],  # allow all for now
     allow_credentials=True,
     allow_methods=["*"],
