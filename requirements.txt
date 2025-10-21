@@ -7,4 +7,5 @@ numpy==1.26.4
 scikit-learn==1.5.1
 requests==2.32.3
 spacy==3.7.4
-en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz
+# install model from pip instead of source tarball
+en-core-web-sm==3.7.1
