@@ -23,13 +23,20 @@ from sklearn.metrics.pairwise import cosine_similarity
 load_dotenv()
 
 # Render fix: Remove proxy vars that break OpenAI client
-os.environ.pop("HTTPS_PROXY", None)
-os.environ.pop("HTTP_PROXY", None)
+# os.environ.pop("HTTPS_PROXY", None)
+# os.environ.pop("HTTP_PROXY", None)
 
 # Initialize OpenAI client
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY not found in environment variables!")
+
+# Use custom httpx client WITHOUT proxy (Render-safe)
+custom_http_client = httpx.Client(
+    proxies=None,
+    timeout=httpx.Timeout(60.0),
+    follow_redirects=True
+)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
