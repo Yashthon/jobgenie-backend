@@ -152,6 +152,6 @@ def root():
 # ===============================
 # 9️⃣ Render entry point
 # ===============================
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # Render gives PORT automatically
-    uvicorn.run(app, host="0.0.0.0", port=port)
+# if __name__ == "__main__":
+#     port = int(os.environ.get("PORT", 10000))  # Render gives PORT automatically
+#     uvicorn.run(app, host="0.0.0.0", port=port)
